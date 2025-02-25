@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <!-- Target .NET 6.0 -->
+    <TargetFramework>net6.0</TargetFramework>
+    <!-- Enable nullable reference types -->
+    <Nullable>enable</Nullable>
+    <!-- Implicit global usings available -->
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+  <PackageReference Include="System.Management" Version="7.0.0" />
+
+  <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="6.0.0" />
+
+    <!-- Entity Framework Core with SQLite provider -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="6.0.0" />
+    <!-- EF Core Design package (private assets only) -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="6.0.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <!-- Serilog for structured logging -->
+    <PackageReference Include="Serilog.AspNetCore" Version="6.1.0" />
+  </ItemGroup>
+</Project>
