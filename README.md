@@ -2,7 +2,7 @@
 this is a working rewrite of the original project  https://github.com/FiskLee/ArmAReforgerServerMonitor
 
 This project is a major work in progress. I am actively making daily updates that include fixes, enhancements, and the rollout of new functionalities.
-
+Support me here:
 https://ko-fi.com/armagamingworld
 
 Disclaimer: this is made by ChatGPT
