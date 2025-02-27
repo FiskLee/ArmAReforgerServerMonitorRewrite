@@ -17,21 +17,21 @@ Disclaimer: this is made by ChatGPT
 Open a terminal and run the following command to download the installation script:
 
 ```bash
-wget https://raw.githubusercontent.com/FiskLee/ArmAReforgerServerMonitorRewrite/blob/main/installscript.sh
+wget https://raw.githubusercontent.com/FiskLee/ArmAReforgerServerMonitorRewrite/main/installscript.sh
 ```
 
 ## Make the Script Executable
 Change the permissions so that the script can be executed:
 
 ```bash
-chmod +x install-backend.sh
+chmod +x installscript.sh
 ```
 
 ## Run the Script as Root
 Since the script installs prerequisites and sets up a systemd service, you must run it with root privileges:
 
 ```bash
-sudo ./install-backend.sh
+sudo ./installscript.sh
 ```
 
 ## Verify the Installation
