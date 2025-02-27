@@ -1,104 +1,93 @@
 #!/bin/bash
-# install-backend.sh
-# This script installs the required prerequisites, downloads the ArmaReforgerServerMonitor.Backend package,
-# installs it to a specified directory, and sets up a systemd service.
+# installscript.sh
+# This script installs the Arma Reforger Server Monitor backend on Linux.
+# It checks prerequisites, prompts for installation and log directories,
+# downloads and extracts the release package, and sets up a systemd service.
 
 set -e
 
-### Variables ###
-PACKAGE_URL="https://github.com/FiskLee/ArmAReforgerServerMonitorRewrite/releases/download/v1.0.0/ArmaReforgerServerMonitor.Backend-linux-x64.zip"
-PACKAGE_NAME="ArmaReforgerServerMonitor.Backend-linux-x64.zip"
-INSTALL_DIR="/opt/ArmaReforgerServerMonitor.Backend"
-SERVICE_FILE="/etc/systemd/system/armareforgerbackend.service"
-BINARY_NAME="ArmaReforgerServerMonitor.Backend"  # Adjust if the binary name is different
-LOG_DIR="/var/log/armareforger"  # Adjust as needed for your log directories
-
-### Functions ###
-
-# Function to check and install .NET 6.0 runtime (for Debian/Ubuntu-based systems)
-install_dotnet_runtime() {
-    echo "Checking for .NET 6.0 runtime..."
-    if ! command -v dotnet &>/dev/null; then
-        echo ".NET 6.0 is not installed. Installing..."
-        wget https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/packages-microsoft-prod.deb -O packages-microsoft-prod.deb
+# Function: Check for .NET 6.0 Runtime
+check_dotnet() {
+    if ! command -v dotnet >/dev/null 2>&1; then
+        echo ".NET 6.0 Runtime not found. Installing..."
+        # Example for Ubuntu; adjust for your distribution.
+        wget https://packages.microsoft.com/config/ubuntu/20.04/packages-microsoft-prod.deb -O packages-microsoft-prod.deb
         sudo dpkg -i packages-microsoft-prod.deb
-        sudo apt-get update
-        sudo apt-get install -y apt-transport-https
         sudo apt-get update
         sudo apt-get install -y dotnet-runtime-6.0
     else
-        # Check version of dotnet
-        DOTNET_VERSION=$(dotnet --list-runtimes | grep "Microsoft.NETCore.App" | head -n1 | awk '{print $2}')
-        if [[ "$DOTNET_VERSION" < "6.0.0" ]]; then
-            echo ".NET runtime version is less than 6.0. Installing .NET 6.0..."
-            sudo apt-get install -y dotnet-runtime-6.0
-        else
-            echo ".NET 6.0 runtime is installed."
-        fi
+        echo ".NET 6.0 Runtime is installed."
     fi
 }
 
-# Function to verify that the current user has read access to the log directory
-verify_log_permissions() {
-    echo "Verifying read access to log directory: $LOG_DIR"
-    if [ ! -d "$LOG_DIR" ]; then
-        echo "Log directory $LOG_DIR does not exist. Please ensure the directory exists and is accessible."
-        exit 1
-    fi
-
-    if [ ! -r "$LOG_DIR" ]; then
-        echo "Insufficient permissions to read $LOG_DIR. Please adjust the permissions."
-        exit 1
-    fi
-}
-
-### Main Script ###
-
-# Ensure the script is run as root
-if [ "$EUID" -ne 0 ]; then
-    echo "Please run as root (e.g., using sudo)."
+# Prompt user for installation directory (example given)
+read -p "Enter installation directory (e.g., /opt/ArmAReforgerServerMonitor.Backend): " INSTALL_DIR
+if [ -z "$INSTALL_DIR" ]; then
+    echo "Installation directory cannot be empty. Exiting."
     exit 1
 fi
 
-echo "Installing prerequisites..."
-install_dotnet_runtime
-verify_log_permissions
+# Create installation directory if it doesn't exist
+sudo mkdir -p "$INSTALL_DIR"
 
-echo "Downloading package from GitHub..."
-wget -O "$PACKAGE_NAME" "$PACKAGE_URL"
+# Prompt user for master log directory (example given)
+read -p "Enter master log directory (e.g., /home/admin/arma-reforger/1874900/AReforgerMaster/logs): " LOG_DIR
+if [ -z "$LOG_DIR" ]; then
+    echo "Master log directory cannot be empty. Exiting."
+    exit 1
+fi
 
-echo "Creating installation directory at $INSTALL_DIR..."
-mkdir -p "$INSTALL_DIR"
+# Check if the master log directory exists
+if [ ! -d "$LOG_DIR" ]; then
+    echo "The master log directory '$LOG_DIR' does not exist. Please create it first and re-run the script."
+    exit 1
+fi
 
-echo "Extracting package..."
-unzip -o "$PACKAGE_NAME" -d "$INSTALL_DIR"
+# Check for prerequisites
+check_dotnet
 
-echo "Setting executable permissions for $BINARY_NAME..."
-chmod +x "$INSTALL_DIR/$BINARY_NAME"
+# Define the download URL and temporary file name.
+DOWNLOAD_URL="https://github.com/FiskLee/ArmAReforgerServerMonitorRewrite/releases/download/v1.0.0/ArmaReforgerServerMonitor.Backend-linux-x64.zip"
+TEMP_ZIP="/tmp/ArmaReforgerServerMonitor.Backend-linux-x64.zip"
+
+echo "Downloading backend package from GitHub..."
+wget -O "$TEMP_ZIP" "$DOWNLOAD_URL"
+
+echo "Extracting package to $INSTALL_DIR..."
+sudo unzip -o "$TEMP_ZIP" -d "$INSTALL_DIR"
+
+# Remove temporary ZIP file.
+rm "$TEMP_ZIP"
+
+# Create a systemd service file.
+SERVICE_FILE="/etc/systemd/system/armareforger-backend.service"
 
 echo "Creating systemd service file at $SERVICE_FILE..."
-cat > "$SERVICE_FILE" <<EOL
+sudo bash -c "cat > $SERVICE_FILE" <<EOF
 [Unit]
-Description=Arma Reforger Server Monitor Backend
+Description=Arma Reforger Server Monitor Backend Service
 After=network.target
 
 [Service]
 Type=simple
 WorkingDirectory=$INSTALL_DIR
-ExecStart=$INSTALL_DIR/$BINARY_NAME
-Restart=on-failure
-User=root
+# Set the log directory environment variable (used by the backend)
+Environment=LOG_DIR=$LOG_DIR
+ExecStart=$INSTALL_DIR/ArmaReforgerServerMonitor.Backend
+Restart=always
+RestartSec=10
 
 [Install]
 WantedBy=multi-user.target
-EOL
+EOF
 
-echo "Reloading systemd daemon..."
-systemctl daemon-reload
+# Reload systemd to register the new service.
+sudo systemctl daemon-reload
 
-echo "Enabling and starting service..."
-systemctl enable armareforgerbackend.service
-systemctl start armareforgerbackend.service
+# Enable and start the service.
+sudo systemctl enable armareforger-backend.service
+sudo systemctl start armareforger-backend.service
 
 echo "Installation complete."
-echo "You can check the service status with: systemctl status armareforgerbackend.service"
+echo "Service status can be checked with: sudo systemctl status armareforger-backend.service"
+echo "To view logs, run: journalctl -u armareforger-backend.service -f"
