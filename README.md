@@ -38,13 +38,13 @@ sudo ./installscript.sh
 Once the script completes, check that the service is running:
 
 ```bash
-systemctl status armareforgerbackend.service
+systemctl status armareforger-backend.service
 ```
 
 You can also view the service logs with:
 
 ```bash
-journalctl -u armareforgerbackend.service
+journalctl -u armareforger-backend.service
 ```
 
 > **Note:** This script installs the .NET 6.0 runtime (if not already installed), verifies log directory permissions, downloads and extracts the backend package from GitHub, sets the proper permissions, and configures a systemd service to run the backend automatically on startup.
