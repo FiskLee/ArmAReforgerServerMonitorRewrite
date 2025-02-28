@@ -47,4 +47,60 @@ You can also view the service logs with:
 journalctl -u armareforger-backend.service
 ```
 
+# Backend Application Setup Guide
+
+## 🚀 Manual Installation Steps
+
+### 1. Terminal Setup
+First, open your preferred terminal emulator.
+
+### 2. Navigate to Installation Directory
+```bash
+cd /opt/ArmAReforgerServerMonitor.Backend
+```
+
+### 3. Launch the Application
+
+#### Option A: Self-Contained Executable
+If you have a self-contained executable:
+```bash
+./ArmaReforgerServerMonitor.Backend
+```
+
+#### Option B: .NET Framework-Dependent
+If you're running a .NET application:
+```bash
+dotnet ArmaReforgerServerMonitor.Backend.dll
+```
+
+### 4. Verify Application Status
+> 🔍 The application should now be running and listening on the configured URL  
+> (e.g., `http://0.0.0.0:5000`)
+
+### 5. Monitor Logs (Optional)
+To continuously monitor application logs:
+```bash
+tail -f /var/log/your_log_file.log
+```
+> ⚠️ Replace `/var/log/your_log_file.log` with your actual log file path
+
+---
+
+## ⚡ Important Notes
+
+- You may need `sudo` privileges if:
+  - The installation directory requires elevated access
+  - The executable needs admin permissions
+
+## 🔧 Troubleshooting
+
+1. Check console output for immediate feedback
+2. Monitor log files for detailed runtime information
+3. Verify the configured URL is accessible
+4. Ensure proper permissions are set
+
+---
+
+*For additional support or configuration options, please refer to the documentation.*
+
 > **Note:** This script installs the .NET 6.0 runtime (if not already installed), verifies log directory permissions, downloads and extracts the backend package from GitHub, sets the proper permissions, and configures a systemd service to run the backend automatically on startup.
