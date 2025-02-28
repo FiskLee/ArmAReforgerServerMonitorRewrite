@@ -47,19 +47,16 @@ You can also view the service logs with:
 journalctl -u armareforger-backend.service
 ```
 
-# Backend Application Setup Guide
 
-## 🚀 Manual Installation Steps
+## 🚀 Steps to manually run the backend 
 
-### 1. Terminal Setup
-First, open your preferred terminal emulator.
 
-### 2. Navigate to Installation Directory
+### 1. Navigate to Installation Directory
 ```bash
 cd /opt/ArmAReforgerServerMonitor.Backend
 ```
 
-### 3. Launch the Application
+### 2. Launch the Application
 
 #### Option A: Self-Contained Executable
 If you have a self-contained executable:
@@ -73,7 +70,7 @@ If you're running a .NET application:
 dotnet ArmaReforgerServerMonitor.Backend.dll
 ```
 
-### 4. Verify Application Status
+### 3. Verify Application Status
 > 🔍 The application should now be running and listening on the configured URL  
 > (e.g., `http://0.0.0.0:5000`)
 
