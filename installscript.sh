@@ -6,8 +6,9 @@
 # 2. Prompts the user for an installation directory and a master log directory (with examples).
 # 3. Downloads the release package from GitHub.
 # 4. Extracts the package into the chosen installation directory.
-# 5. Creates a systemd service file for the backend.
-# 6. Enables and starts the service.
+# 5. Prompts the user whether to create and enable a systemd service.
+#    - If yes, it creates a systemd service file, reloads systemd, enables, and starts the service.
+#    - If no, it reminds the user how to run the application manually.
 #
 # Verbose messages are printed for debugging and guidance.
 
@@ -69,10 +70,14 @@ sudo unzip -o "$TEMP_ZIP" -d "$INSTALL_DIR" | tee /tmp/extract.log
 echo "[DEBUG] Removing temporary ZIP file..."
 rm "$TEMP_ZIP"
 
-# Create systemd service file.
-SERVICE_FILE="/etc/systemd/system/armareforger-backend.service"
-echo "[INFO] Creating systemd service file at $SERVICE_FILE..."
-sudo bash -c "cat > $SERVICE_FILE" <<EOF
+# Ask the user if they want to create and enable a systemd service.
+echo ""
+read -rp "Do you want to create and enable a systemd service? (y/n): " CREATE_SERVICE
+if [[ "$CREATE_SERVICE" =~ ^[Yy]$ ]]; then
+    # Create systemd service file.
+    SERVICE_FILE="/etc/systemd/system/armareforger-backend.service"
+    echo "[INFO] Creating systemd service file at $SERVICE_FILE..."
+    sudo bash -c "cat > $SERVICE_FILE" <<EOF
 [Unit]
 Description=Arma Reforger Server Monitor Backend Service
 After=network.target
@@ -89,15 +94,20 @@ RestartSec=10
 WantedBy=multi-user.target
 EOF
 
-echo "[DEBUG] Reloading systemd daemon..."
-sudo systemctl daemon-reload
+    echo "[DEBUG] Reloading systemd daemon..."
+    sudo systemctl daemon-reload
 
-echo "[INFO] Enabling and starting the service..."
-sudo systemctl enable armareforger-backend.service
-sudo systemctl start armareforger-backend.service
+    echo "[INFO] Enabling and starting the service..."
+    sudo systemctl enable armareforger-backend.service
+    sudo systemctl start armareforger-backend.service
 
-echo "=============================="
-echo "Installation complete."
-echo "Service status: sudo systemctl status armareforger-backend.service"
-echo "To view logs: journalctl -u armareforger-backend.service -f"
-echo "=============================="
+    echo "=============================="
+    echo "Installation complete."
+    echo "Service status: sudo systemctl status armareforger-backend.service"
+    echo "To view logs: journalctl -u armareforger-backend.service -f"
+    echo "=============================="
+else
+    echo "[INFO] Skipping systemd service creation. You can run the application manually:"
+    echo "  $INSTALL_DIR/ArmaReforgerServerMonitor.Backend"
+    echo "=============================="
+fi
