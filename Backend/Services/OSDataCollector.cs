@@ -17,7 +17,7 @@ namespace ArmaReforgerServerMonitor.Backend
     /// Collects OS and hardware performance metrics.
     /// On Windows, uses PerformanceCounters, WMI, and a one‑time disk benchmark (cached).
     /// On Linux, parses /proc and /sys files and runs a one‑time disk benchmark.
-    /// Realtime game metrics from GameMetrics are merged.
+    /// Realtime game metrics from SharedGameMetrics are merged.
     /// </summary>
     public class OSDataCollector
     {
@@ -121,7 +121,7 @@ namespace ArmaReforgerServerMonitor.Backend
                 foreach (var drive in DriveInfo.GetDrives().Where(d => d.DriveType == DriveType.Fixed && d.IsReady))
                 {
                     string driveLetter = drive.RootDirectory.FullName;
-                    // For demonstration purposes, use a default value.
+                    // For demonstration purposes, we use a default throughput of 500 MB/s.
                     _driveBenchmarkThroughputs[driveLetter] = 500f;
                     Log.Debug("Benchmark for drive {DriveLetter}: default throughput 500 MB/s", driveLetter);
                 }
@@ -246,12 +246,13 @@ namespace ArmaReforgerServerMonitor.Backend
                     Log.Debug("Windows disk {Drive}: Read {ReadMBps:N2} MB/s, Write {WriteMBps:N2} MB/s, Max {MaxThroughput:N2} MB/s, Usage {UsagePercent:N0}%",
                         systemDrive, readMBps, writeMBps, maxThroughput, usagePercent);
                 }
-                float totalReceived = 0, totalSent = 0;
+                float totalReceived = 0;
                 if (_networkReceivedCounters != null)
                 {
                     foreach (var counter in _networkReceivedCounters)
                         totalReceived += counter.NextValue();
                 }
+                float totalSent = 0;
                 if (_networkSentCounters != null)
                 {
                     foreach (var counter in _networkSentCounters)
@@ -543,6 +544,32 @@ namespace ArmaReforgerServerMonitor.Backend
             return 512f; // Default sector size.
         }
 
+        // Parses a memory value from a line in /proc/meminfo.
+        private ulong ParseMemValue(string line)
+        {
+            var parts = line.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length >= 2 && ulong.TryParse(parts[1], out ulong value))
+                return value;
+            return 0;
+        }
+
+        // Helper method to read network statistics on Linux.
+        private (ulong Received, ulong Sent) ReadLinuxNetworkBytes()
+        {
+            var netLines = File.ReadAllLines("/proc/net/dev").Skip(2);
+            ulong totalReceived = 0, totalSent = 0;
+            foreach (var line in netLines)
+            {
+                var parts = line.Split(new char[] { ' ', ':' }, StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length >= 9)
+                {
+                    totalReceived += ulong.Parse(parts[1]);
+                    totalSent += ulong.Parse(parts[9]);
+                }
+            }
+            return (totalReceived, totalSent);
+        }
+
         #endregion
 
         /// <summary>
@@ -564,40 +591,10 @@ namespace ArmaReforgerServerMonitor.Backend
                 dto = new OSDataDTO();
             }
             // Merge realtime game metrics.
-            dto.FPS = Models.GameMetrics.FPS;
+            dto.FPS = Models.GameMetrics.FPS; // Alternatively, use SharedGameMetrics.FPS if using that class.
             dto.FrameTime = Models.GameMetrics.FrameTime;
             dto.ActivePlayers = Models.GameMetrics.ActivePlayers;
             return dto;
         }
-
-        #region Helper Methods
-
-        // Reads Linux network bytes from /proc/net/dev.
-        private (ulong Received, ulong Sent) ReadLinuxNetworkBytes()
-        {
-            var netLines = File.ReadAllLines("/proc/net/dev").Skip(2);
-            ulong totalReceived = 0, totalSent = 0;
-            foreach (var line in netLines)
-            {
-                var parts = line.Split(new char[] { ' ', ':' }, StringSplitOptions.RemoveEmptyEntries);
-                if (parts.Length >= 9)
-                {
-                    totalReceived += ulong.Parse(parts[1]);
-                    totalSent += ulong.Parse(parts[9]);
-                }
-            }
-            return (totalReceived, totalSent);
-        }
-
-        // Parses a memory value from a line in /proc/meminfo.
-        private ulong ParseMemValue(string line)
-        {
-            var parts = line.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length >= 2 && ulong.TryParse(parts[1], out ulong value))
-                return value;
-            return 0;
-        }
-
-        #endregion
     }
 }

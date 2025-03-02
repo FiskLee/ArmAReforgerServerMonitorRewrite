@@ -1,36 +1,12 @@
 {
   "Version": 1,
-  "WorkspaceRootPath": "C:\\Users\\marwa\\OneDrive\\Documents\\my gb repo\\rewrite 5\\Frontend\\",
-  "Documents": [
-    {
-      "AbsoluteMoniker": "D:0:0:{14D9D5E6-EB7C-8480-138F-C7889C819E36}|ArmaReforgerServerMonitor.Frontend.csproj|c:\\users\\marwa\\onedrive\\documents\\my gb repo\\rewrite 5\\frontend\\armareforgerservermonitor.frontend.csproj||{04B8AB82-A572-4FEF-95CE-5222444B6B64}|",
-      "RelativeMoniker": "D:0:0:{14D9D5E6-EB7C-8480-138F-C7889C819E36}|ArmaReforgerServerMonitor.Frontend.csproj|solutionrelative:armareforgerservermonitor.frontend.csproj||{04B8AB82-A572-4FEF-95CE-5222444B6B64}|"
-    }
-  ],
+  "WorkspaceRootPath": "C:\\Users\\marwa\\OneDrive\\Documents\\my gb repo\\rewrite 5\\ArmAReforgerServerMonitorRewrite\\Frontend\\",
+  "Documents": [],
   "DocumentGroupContainers": [
     {
       "Orientation": 0,
       "VerticalTabListWidth": 256,
-      "DocumentGroups": [
-        {
-          "DockedWidth": 200,
-          "SelectedChildIndex": 0,
-          "Children": [
-            {
-              "$type": "Document",
-              "DocumentIndex": 0,
-              "Title": "ArmaReforgerServerMonitor.Frontend",
-              "DocumentMoniker": "C:\\Users\\marwa\\OneDrive\\Documents\\my gb repo\\rewrite 5\\Frontend\\ArmaReforgerServerMonitor.Frontend.csproj",
-              "RelativeDocumentMoniker": "ArmaReforgerServerMonitor.Frontend.csproj",
-              "ToolTip": "C:\\Users\\marwa\\OneDrive\\Documents\\my gb repo\\rewrite 5\\Frontend\\ArmaReforgerServerMonitor.Frontend.csproj",
-              "RelativeToolTip": "ArmaReforgerServerMonitor.Frontend.csproj",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000758|",
-              "WhenOpened": "2025-02-25T10:57:52.748Z",
-              "EditorCaption": ""
-            }
-          ]
-        }
-      ]
+      "DocumentGroups": []
     }
   ]
 }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
@@ -10,11 +11,15 @@ using LiveCharts;
 using LiveCharts.Wpf;
 using System.Collections.ObjectModel;
 using Serilog;
-using ArmaReforgerServerMonitor.Frontend.Models; // Ensure OSDataDTO and DiskMetricsViewModel are defined here
+using MahApps.Metro.Controls;
+using ArmaReforgerServerMonitor.Frontend.Models;
+using ArmaReforgerServerMonitor.Frontend.Rcon;
+using BattleNET;
+using BattleNET.Models;
 
 namespace ArmaReforgerServerMonitor.Frontend
 {
-    public partial class MainWindow : Window
+    public partial class MainWindow : MetroWindow
     {
         private static readonly ILogger Logger = Log.ForContext<MainWindow>();
         private HttpClient _httpClient = new HttpClient();
@@ -52,14 +57,19 @@ namespace ArmaReforgerServerMonitor.Frontend
         public string ConsoleLogSummary { get; set; } = "No console log entries parsed yet";
         public string Status { get; set; } = "Disconnected";
 
+        // RCON fields (bound to UI TextBoxes).
+        public string RconPort { get; set; } = "";
+        public string RconPassword { get; set; } = "";
+
+        // RCON client wrapper.
+        private BattleyeRconClient? _battleyeRconClient;
+
         public MainWindow()
         {
             InitializeComponent();
             DataContext = this;
-
             _pollTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
             _pollTimer.Tick += async (s, e) => await PollBackend();
-
             Logger.Information("MainWindow initialized. Test log entry.");
         }
 
@@ -75,12 +85,60 @@ namespace ArmaReforgerServerMonitor.Frontend
                 Logger.Debug("OS Metrics API responded with status: {StatusCode}", osResponse.StatusCode);
                 if (osResponse.IsSuccessStatusCode)
                 {
-                    _failureCount = 0; // Reset failure counter.
-                    var json = await osResponse.Content.ReadAsStringAsync();
-                    var osMetrics = JsonSerializer.Deserialize<OSDataDTO>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                    if (osMetrics != null)
+                    _failureCount = 0;
+                    string json = await osResponse.Content.ReadAsStringAsync();
+                    Logger.Debug("Raw OS Metrics JSON received: {Json}", json);
+
+                    json = json.Trim();
+                    if (string.IsNullOrWhiteSpace(json))
                     {
-                        UpdateChartsAndSummary(osMetrics);
+                        Logger.Warning("OS Metrics API returned empty JSON.");
+                    }
+                    else
+                    {
+                        OSDataDTO? osMetrics = null;
+                        try
+                        {
+                            osMetrics = JsonSerializer.Deserialize<OSDataDTO>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                        }
+                        catch (JsonException jex)
+                        {
+                            Logger.Error(jex, "Error deserializing OS Metrics JSON.");
+                        }
+
+                        if (osMetrics != null)
+                        {
+                            // If RCON is connected, try to get players.
+                            if (_battleyeRconClient != null && _battleyeRconClient.IsConnected)
+                            {
+                                string playersJson = await _battleyeRconClient.ExecuteCommandAsync("players");
+                                Logger.Debug("Raw Players JSON received: {PlayersJson}", playersJson);
+                                if (!string.IsNullOrWhiteSpace(playersJson))
+                                {
+                                    try
+                                    {
+                                        List<PlayerInfo>? players = JsonSerializer.Deserialize<List<PlayerInfo>>(playersJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                                        if (players != null)
+                                        {
+                                            osMetrics.ActivePlayers = players.Count;
+                                        }
+                                    }
+                                    catch (JsonException jex)
+                                    {
+                                        Logger.Error(jex, "Error deserializing Players JSON: {PlayersJson}", playersJson);
+                                    }
+                                }
+                                else
+                                {
+                                    Logger.Warning("Players command returned empty JSON.");
+                                }
+                            }
+                            UpdateChartsAndSummary(osMetrics);
+                        }
+                        else
+                        {
+                            Logger.Warning("OS Metrics deserialization returned null.");
+                        }
                     }
                 }
                 else
@@ -177,7 +235,7 @@ namespace ArmaReforgerServerMonitor.Frontend
                 CpuSeries.Add(new ColumnSeries
                 {
                     Title = "Per-Core CPU",
-                    Values = new ChartValues<double>(metrics.PerCoreCpuUsage.Values.Select(v => (double)v)),
+                    Values = new ChartValues<double>(metrics.PerCoreCpuUsage.Values.ToList().Select(v => (double)v)),
                     DataLabels = true,
                     LabelPoint = point => $"{point.Y:N0}%"
                 });
@@ -240,7 +298,6 @@ namespace ArmaReforgerServerMonitor.Frontend
                     $"Active Players: {metrics.ActivePlayers}";
                 PerformanceSummaryTextBlock.Text = PerformanceSummary;
 
-                // Update Console Log Summary.
                 ConsoleLogSummaryTextBlock.Text = ConsoleLogSummary;
             }
             catch (Exception ex)
@@ -251,13 +308,48 @@ namespace ArmaReforgerServerMonitor.Frontend
 
         private async void ConnectButton_Click(object sender, RoutedEventArgs e)
         {
+            if (!int.TryParse(RconPortTextBox.Text, out int port))
+            {
+                MessageBox.Show("Invalid RCON port number.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+            string rconPassword = RconPasswordTextBox.Password;
+            if (string.IsNullOrWhiteSpace(rconPassword))
+            {
+                MessageBox.Show("Please enter a RCON password.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            try
+            {
+                // Remove protocol and port info from the Server URL.
+                string host = ServerUrlTextBox.Text.Replace("http://", "").Replace("https://", "").Trim();
+                if (host.Contains(":"))
+                {
+                    host = host.Split(':')[0];
+                }
+                Logger.Information("Attempting to connect to RCON host: {Host} on port: {Port}", host, port);
+
+                _battleyeRconClient = new BattleyeRconClient(host, port, rconPassword);
+                var connectionResult = await _battleyeRconClient.ConnectAsync();
+                if (connectionResult != BattlEyeConnectionResult.Success)
+                {
+                    MessageBox.Show($"Failed to connect to Battleye RCON: {connectionResult}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Failed to connect to RCON: " + ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
             _isConnected = true;
             Status = "Connected";
             StatusTextBlock.Text = Status;
             ConnectButton.IsEnabled = false;
             DisconnectButton.IsEnabled = true;
 
-            // Open the Frontend Logs popup window.
             var logsWindow = new FrontendLogsWindow();
             logsWindow.Show();
 
@@ -267,6 +359,15 @@ namespace ArmaReforgerServerMonitor.Frontend
 
         private async void DisconnectButton_Click(object sender, RoutedEventArgs e)
         {
+            try
+            {
+                await _battleyeRconClient.DisconnectAsync();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Failed to disconnect from RCON: " + ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+
             _isConnected = false;
             Status = "Disconnected";
             StatusTextBlock.Text = Status;

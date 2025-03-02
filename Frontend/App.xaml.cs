@@ -7,11 +7,13 @@ namespace ArmaReforgerServerMonitor.Frontend
 {
     public partial class App : Application
     {
-        public static string LogFilePath { get; private set; }
+        // This property holds the path to the log file.
+        // It is assigned a default value so that it is never null.
+        public string LogFilePath { get; set; } = "logs/frontend_log.json";
 
         protected override void OnStartup(StartupEventArgs e)
         {
-            // Determine absolute path for the logs folder.
+            // Determine the absolute path for the logs folder.
             string baseDir = AppDomain.CurrentDomain.BaseDirectory;
             string logsDir = Path.Combine(baseDir, "logs");
             Directory.CreateDirectory(logsDir);
@@ -19,7 +21,7 @@ namespace ArmaReforgerServerMonitor.Frontend
             // Set the absolute log file path.
             LogFilePath = Path.Combine(logsDir, "frontend_log.json");
 
-            // Configure Serilog to write to the file with shared access.
+            // Configure Serilog to write to the console and to the file with shared access.
             Log.Logger = new LoggerConfiguration()
                 .MinimumLevel.Debug()
                 .WriteTo.Console()

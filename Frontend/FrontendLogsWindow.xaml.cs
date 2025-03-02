@@ -1,59 +1,99 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Windows;
 using System.Windows.Threading;
+using MahApps.Metro.Controls;
 using Serilog;
+using BattleNET;
+
 
 namespace ArmaReforgerServerMonitor.Frontend
 {
-    public partial class FrontendLogsWindow : Window
+    public partial class FrontendLogsWindow : MetroWindow
     {
         private DispatcherTimer _refreshTimer;
+        private readonly string _logsFolder;
+        private string _currentLogFilePath = string.Empty;
 
         public FrontendLogsWindow()
         {
             InitializeComponent();
-            // Log the file path for debugging.
-            Log.Debug("FrontendLogsWindow: Using log file path: {LogFilePath}", App.LogFilePath);
-            _refreshTimer = new DispatcherTimer
-            {
-                Interval = TimeSpan.FromSeconds(2)
-            };
+
+            // Determine the absolute logs folder path.
+            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            _logsFolder = Path.Combine(baseDir, "logs");
+
+            // Ensure the logs folder exists.
+            Directory.CreateDirectory(_logsFolder);
+
+            // Attempt to locate the most recent frontend log file.
+            UpdateCurrentLogFilePath();
+
+            Log.Information("FrontendLogsWindow initialized. Using log file: {LogFilePath}", _currentLogFilePath);
+
+            // Initialize the timer with an interval of 2 seconds.
+            _refreshTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
             _refreshTimer.Tick += RefreshTimer_Tick;
             _refreshTimer.Start();
         }
 
-        private void RefreshTimer_Tick(object sender, EventArgs e)
+        /// <summary>
+        /// Searches the logs folder for files matching "frontend_log*.json" and sets _currentLogFilePath
+        /// to the most recently modified one.
+        /// </summary>
+        private void UpdateCurrentLogFilePath()
         {
             try
             {
-                // Read the log file using the same absolute path.
-                if (File.Exists(App.LogFilePath))
+                var logFiles = Directory.GetFiles(_logsFolder, "frontend_log*.json");
+                if (logFiles.Any())
                 {
-                    string content = File.ReadAllText(App.LogFilePath);
-                    // Log the length for debugging.
-                    Log.Debug("FrontendLogsWindow: Read log file content length: {Length}", content.Length);
-                    // Update the TextBox.
-                    LogsTextBox.Text = string.IsNullOrWhiteSpace(content)
-                        ? "Log file exists but is empty."
-                        : content;
+                    // Get the most recent file by LastWriteTime.
+                    _currentLogFilePath = logFiles
+                        .OrderByDescending(f => new FileInfo(f).LastWriteTime)
+                        .First();
                 }
                 else
                 {
-                    LogsTextBox.Text = "No frontend logs available.";
+                    _currentLogFilePath = string.Empty;
                 }
             }
             catch (Exception ex)
             {
-                Log.Error("Error reading frontend log file: {Message}", ex.Message);
-                LogsTextBox.Text = "Error reading log file.";
+                Log.Error("Error finding frontend log file: {Message}", ex.Message);
+                _currentLogFilePath = string.Empty;
             }
         }
 
-        protected override void OnClosed(EventArgs e)
+        private void RefreshTimer_Tick(object? sender, EventArgs e)
         {
-            _refreshTimer.Stop();
-            base.OnClosed(e);
+            try
+            {
+                // Update current log file path (in case a new file was created).
+                UpdateCurrentLogFilePath();
+
+                if (string.IsNullOrEmpty(_currentLogFilePath) || !File.Exists(_currentLogFilePath))
+                {
+                    LogsTextBox.Text = $"Log file not found in {_logsFolder}";
+                    Log.Debug("Log file not found in {LogsFolder}", _logsFolder);
+                    return;
+                }
+
+                // Open the file with shared read access.
+                using (var stream = new FileStream(_currentLogFilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                using (var reader = new StreamReader(stream))
+                {
+                    string logs = reader.ReadToEnd();
+                    LogsTextBox.Text = logs;
+                }
+                Log.Debug("Log file read successfully from {LogFilePath}", _currentLogFilePath);
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Error reading log file in FrontendLogsWindow: {Message}", ex.Message);
+                LogsTextBox.Text = "Error reading log file: " + ex.Message;
+            }
         }
     }
 }
